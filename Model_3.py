@@ -10,12 +10,13 @@ train_x,test_x,train_y,test_y = get_features_and_labels(0.2)
 
 n_nodes_hl1 = 100
 n_nodes_hl2 = 100
+n_nodes_hl3 = 100
 
 n_classes = 2
-batch_size = 500
-hm_epochs = 50
+batch_size = 1000
+hm_epochs = 500
 
-dropout = 0.75
+dropout = 0
 
 x = tf.placeholder('float')
 y = tf.placeholder('float')
@@ -30,8 +31,13 @@ hidden_2_layer = {'f_fum': n_nodes_hl2,
                                             initializer = tf.contrib.layers.xavier_initializer()),
                   'bias': tf.Variable(tf.random_normal([n_nodes_hl2]))}
 
+hidden_3_layer = {'f_fum': n_nodes_hl3,
+                  'weight': tf.get_variable('W3', shape = [n_nodes_hl2, n_nodes_hl3],
+                                            initializer = tf.contrib.layers.xavier_initializer()),
+                  'bias': tf.Variable(tf.random_normal([n_nodes_hl3]))}
+
 output_layer = {'f_fum': None,
-                'weight': tf.get_variable('W3', shape = [n_nodes_hl2, n_classes],
+                'weight': tf.get_variable('W_Output', shape = [n_nodes_hl3, n_classes],
                                           initializer = tf.contrib.layers.xavier_initializer()),
                 'bias': tf.Variable(tf.random_normal([n_classes])), }
 
@@ -47,17 +53,19 @@ def neural_network_model(data):
 
     l2 = tf.add(tf.matmul(l1, hidden_2_layer['weight']), hidden_2_layer['bias'])
     l2 = tf.nn.relu(l2)
-    l2 = tf.nn.dropout(l2, dropout)
 
-    output = tf.matmul(l2, output_layer['weight']) + output_layer['bias']
+    l3 = tf.add(tf.matmul(l2, hidden_2_layer['weight']), hidden_3_layer['bias'])
+    l3 = tf.nn.relu(l3)
+
+    output = tf.matmul(l3, output_layer['weight']) + output_layer['bias']
 
     return output
 
 def train_neural_network(x):
     prediction = neural_network_model(x)
     cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits = prediction, labels = y)) + \
-           0.01*tf.nn.l2_loss(hidden_1_layer['weight']) + 0.01 * tf.nn.l2_loss(hidden_2_layer['weight']) + \
-           0.01*tf.nn.l2_loss(output_layer['weight'])
+           1 * tf.nn.l2_loss(hidden_1_layer['weight']) + 1 * tf.nn.l2_loss(hidden_2_layer['weight']) + \
+           1 * tf.nn.l2_loss(hidden_3_layer['weight']) + 1 * tf.nn.l2_loss(output_layer['weight'])
 
     global_step = tf.Variable(0, trainable = False)
     starter_learning_rate = 0.001
@@ -87,6 +95,10 @@ def train_neural_network(x):
                 i += batch_size
 
             print('Epoch', epoch + 1, 'completed out of', hm_epochs, 'loss:', epoch_loss)
+            correct = tf.equal(tf.argmax(prediction, 1), tf.argmax(y, 1))
+            accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
+            print('Accuracy:', accuracy.eval({x: batch_x, y: batch_y}))
+
             # correct = tf.equal(tf.argmax(prediction, 1), tf.argmax(y, 1))
             # accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
             # print('minibatch Accuracy:', accuracy.eval({x: test_x, y: test_y}))
@@ -105,8 +117,8 @@ def train_neural_network(x):
         predicted_value = predicted_value.eval({x: test_x, y: test_y})
         true_value = true_value.eval({x: test_x, y: test_y})
         print('F1: ', precision_recall_fscore_support(true_value, predicted_value, average = 'binary'))
-        np.savetxt('test1.csv', true_value, delimiter = ',')
-        np.savetxt('test2.csv', predicted_value, delimiter = ',')
+        # np.savetxt('test1.csv', true_value, delimiter = ',')
+        # np.savetxt('test2.csv', predicted_value, delimiter = ',')
 
 train_neural_network(x)
 # plt.plot(x_axis,y_axis)

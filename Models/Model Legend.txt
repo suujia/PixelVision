@@ -1,0 +1,9 @@
+Model 1 
+Input (n, 14) -> hidden_node1 (14, 1000) -> RELU -> hidden_node2(1000,1000) 
+-> RELU -> Output (1000, 2) -> Sigmoid -> Predict
+
+Model 2
+Input (n, 14) -> hidden_node1 (14, 1000) -> RELU -> hidden_node2(1000,1000) 
+-> RELU -> hidden_node3(1000,1000) -> RELU -> DropOut -> Output (1000, 2)
+-> Sigmoid -> Predict
+L2 Regularisation
