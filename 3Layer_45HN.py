@@ -1,7 +1,7 @@
 from process_eeg import get_features_and_labels
 import tensorflow as tf
 import numpy as np
-from sklearn.metrics import f1_score
+from sklearn.metrics import precision_recall_fscore_support
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -13,7 +13,9 @@ n_nodes_hl2 = 100
 
 n_classes = 2
 batch_size = 500
-hm_epochs = 20
+hm_epochs = 50
+
+dropout = 0.75
 
 x = tf.placeholder('float')
 y = tf.placeholder('float')
@@ -45,6 +47,7 @@ def neural_network_model(data):
 
     l2 = tf.add(tf.matmul(l1, hidden_2_layer['weight']), hidden_2_layer['bias'])
     l2 = tf.nn.relu(l2)
+    l2 = tf.nn.dropout(l2, dropout)
 
     output = tf.matmul(l2, output_layer['weight']) + output_layer['bias']
 
@@ -55,7 +58,13 @@ def train_neural_network(x):
     cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits = prediction, labels = y)) + \
            0.01*tf.nn.l2_loss(hidden_1_layer['weight']) + 0.01 * tf.nn.l2_loss(hidden_2_layer['weight']) + \
            0.01*tf.nn.l2_loss(output_layer['weight'])
-    optimizer = tf.train.AdamOptimizer(learning_rate = 0.001).minimize(cost)
+
+    global_step = tf.Variable(0, trainable = False)
+    starter_learning_rate = 0.001
+    learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step,
+                                               100000, 0.96, staircase = True)
+
+    optimizer = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(cost)
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -90,6 +99,14 @@ def train_neural_network(x):
         accuracy = tf.reduce_mean(tf.cast(correct, 'float'))
 
         print('Accuracy:', accuracy.eval({x: test_x, y: test_y}))
+        predicted_value = tf.argmax(prediction, 1)
+        true_value = tf.argmax(test_y,1)
+
+        predicted_value = predicted_value.eval({x: test_x, y: test_y})
+        true_value = true_value.eval({x: test_x, y: test_y})
+        print('F1: ', precision_recall_fscore_support(true_value, predicted_value, average = 'binary'))
+        np.savetxt('test1.csv', true_value, delimiter = ',')
+        np.savetxt('test2.csv', predicted_value, delimiter = ',')
 
 train_neural_network(x)
 # plt.plot(x_axis,y_axis)
